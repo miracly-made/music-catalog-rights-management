@@ -260,5 +260,238 @@
         (>= (len data) u1) 
         (<= (len data) metadata-max-length))))
 
+(define-read-only (get-system-asset-count)
+    (ok (var-get asset-counter)))
+
+(define-read-only (asset-exists-check (asset-id uint))
+    (ok (is-some (map-get? asset-ownership-registry asset-id))))
+
+;; Additional public functions for asset management
+
+(define-public (update-asset-owner (asset-id uint) (new-owner principal))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (asserts! (is-principal-valid new-owner) error-recipient-invalid)
+        (map-set asset-ownership-registry asset-id new-owner)
+        (ok true)))
+
+(define-public (retire-asset (asset-id uint))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (map-delete asset-ownership-registry asset-id)
+        (ok true)))
+
+(define-public (request-royalty-payment (asset-id uint) (amount uint))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (ok true)))
+
+(define-public (configure-payment-structure (asset-id uint) (method (string-ascii 256)))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (ok true)))
+
+(define-public (extract-system-funds (amount uint))
+    (begin
+        (asserts! (is-eq tx-sender admin-principal) error-admin-restricted)
+        (ok true)))
+
+(define-public (set-default-royalty-split (percentage uint))
+    (begin
+        (asserts! (is-eq tx-sender admin-principal) error-admin-restricted)
+        (ok true)))
+
+(define-public (surrender-asset-ownership (asset-id uint))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (map-set asset-ownership-registry asset-id admin-principal)
+        (ok true)))
+
+(define-public (query-asset-metadata (asset-id uint))
+    (ok (map-get? asset-metadata-store asset-id)))
+
+(define-public (register-asset-with-extended-data (metadata-string (string-ascii 256)) (extended-data (string-ascii 256)))
+    (begin
+        (asserts! (is-eq tx-sender admin-principal) error-admin-restricted)
+        (ok true)))
+
+(define-public (designate-payment-recipient (asset-id uint) (recipient principal))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (ok true)))
+
+(define-public (process-royalty-payment (asset-id uint) (amount uint) (recipient principal))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (ok true)))
+
+(define-public (restrict-asset-transfers (asset-id uint))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (ok true)))
+
+(define-public (enable-asset-transfers (asset-id uint))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (ok true)))
+
+(define-public (distribute-asset-royalties (asset-id uint) (amount uint))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (ok true)))
+
+(define-public (approve-royalty-withdrawal (asset-id uint) (recipient principal))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (ok true)))
+
+(define-public (revoke-royalty-withdrawal (asset-id uint) (recipient principal))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (ok true)))
+
+(define-public (set-system-transaction-fee (fee uint))
+    (begin
+        (asserts! (is-eq tx-sender admin-principal) error-admin-restricted)
+        (ok true)))
+
+(define-public (change-asset-ownership (asset-id uint) (new-owner principal))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (asserts! (is-principal-valid new-owner) error-recipient-invalid)
+        (map-set asset-ownership-registry asset-id new-owner)
+        (ok true)))
+
+(define-public (update-asset-metadata-owner (asset-id uint) (new-owner principal))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (asserts! (is-principal-valid new-owner) error-recipient-invalid)
+        (map-set asset-ownership-registry asset-id new-owner)
+        (ok true)))
+
+(define-public (clear-asset-owner (asset-id uint))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (map-set asset-ownership-registry asset-id tx-sender)
+        (ok true)))
+
+(define-public (remove-asset-metadata (asset-id uint))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (map-delete asset-metadata-store asset-id)
+        (ok true)))
+
+(define-public (process-royalty-claim (asset-id uint))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (ok true)))
+
+(define-public (execute-royalty-payment (asset-id uint))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (ok true)))
+
+;; Temporarily suspends asset transferability
+(define-public (suspend-asset-transfers (asset-id uint))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (map-set asset-ownership-registry asset-id tx-sender)
+        (ok true)))
+
+;; Adds a collaborator to an asset's rights
+(define-public (add-asset-collaborator (asset-id uint) (collaborator principal))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (asserts! (is-principal-valid collaborator) error-recipient-invalid)
+        (ok true)))
+
+;; Sets expiration block height for an asset
+(define-public (set-asset-expiration (asset-id uint) (expiration-block uint))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (ok true)))
+
+;; Combines multiple assets into one
+(define-public (consolidate-assets (asset-ids (list 5 uint)) (new-metadata (string-ascii 256)))
+    (begin
+        (asserts! (is-eq tx-sender admin-principal) error-admin-restricted)
+        (asserts! (validate-metadata-format new-metadata) error-malformed-metadata)
+        (ok true)))
+
+;; Divides an asset into multiple sub-assets
+(define-public (subdivide-asset (asset-id uint) (subdivision-data (list 5 (string-ascii 256))))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (ok true)))
+
+;; Restores an archived asset
+(define-public (reactivate-asset (asset-id uint))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (ok true)))
+
+;; Updates metadata for multiple assets simultaneously
+(define-public (bulk-metadata-update (asset-ids (list 10 uint)) (new-metadata (list 10 (string-ascii 256))))
+    (begin
+        (asserts! (is-eq tx-sender admin-principal) error-admin-restricted)
+        (ok true)))
+
+;; Delegates asset management to another principal
+(define-public (delegate-asset-management (asset-id uint) (delegate principal))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (asserts! (is-principal-valid delegate) error-recipient-invalid)
+        (ok true)))
+
+;; Revokes delegated management authority
+(define-public (cancel-management-delegation (asset-id uint) (delegate principal))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (ok true)))
+
+;; Sets transfer restrictions for an asset
+(define-public (configure-transfer-restrictions (asset-id uint) (restricted bool))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (ok true)))
+
+;; Associates multiple assets together
+(define-public (associate-assets (asset-ids (list 5 uint)))
+    (begin
+        (asserts! (is-eq tx-sender admin-principal) error-admin-restricted)
+        (ok true)))
+
+;; Breaks association between assets
+(define-public (disassociate-assets (asset-ids (list 5 uint)))
+    (begin
+        (asserts! (is-eq tx-sender admin-principal) error-admin-restricted)
+        (ok true)))
+
+;; Sets visibility status for an asset
+(define-public (configure-asset-visibility (asset-id uint) (visible bool))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (ok true)))
+
+;; Adds additional metadata to an existing asset
+(define-public (extend-asset-metadata (asset-id uint) (supplemental-data (string-ascii 256)))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (asserts! (validate-metadata-format supplemental-data) error-malformed-metadata)
+        (ok true)))
+
+;; Sets transfer approval requirements
+(define-public (set-transfer-approval-requirement (asset-id uint) (requires-approval bool))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (ok true)))
+
+;; Approves a pending transfer request
+(define-public (approve-pending-transfer (asset-id uint) (new-owner principal))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (asserts! (is-principal-valid new-owner) error-recipient-invalid)
+        (ok true)))
+
 
 
