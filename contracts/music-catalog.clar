@@ -41,3 +41,39 @@
 (define-private (has-asset-authorization (asset-id uint) (caller principal))
     (is-eq caller (unwrap! (map-get? asset-ownership-registry asset-id) false)))
 
+;; Performs validation on incoming metadata
+(define-private (validate-metadata-format (metadata-string (string-ascii 256)))
+    (let ((content-length (len metadata-string)))
+        (and (>= content-length u1)  ;; Enforce minimum content requirement
+             (<= content-length metadata-max-length))))  ;; Prevent oversized content
+
+;; Performs basic validation on principal addresses
+(define-private (is-principal-valid (address principal))
+    true)
+
+;; Creates a single asset entry with associated metadata
+(define-private (create-asset-entry (metadata-string (string-ascii 256)))
+    (let ((asset-id (+ (var-get asset-counter) u1)))
+        (try! (nft-mint? catalog-asset asset-id tx-sender))
+        (map-set asset-metadata-store asset-id metadata-string)
+        (map-set asset-ownership-registry asset-id tx-sender)
+        (var-set asset-counter asset-id)
+        (ok asset-id)))
+
+;; --------------------- External API Functions -------------------------
+
+;; Creates a new catalog asset with associated metadata
+(define-public (create-catalog-asset (metadata-string (string-ascii 256)))
+    (begin
+        (asserts! (is-eq tx-sender admin-principal) error-admin-restricted)
+        (asserts! (validate-metadata-format metadata-string) error-malformed-metadata)
+        (create-asset-entry metadata-string)))
+
+;; Transfers asset ownership to a new account
+(define-public (assign-asset-ownership (asset-id uint) (recipient principal))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (asserts! (is-principal-valid recipient) error-recipient-invalid)
+        (try! (nft-transfer? catalog-asset asset-id tx-sender recipient))
+        (map-set asset-ownership-registry asset-id recipient)
+        (ok true)))
