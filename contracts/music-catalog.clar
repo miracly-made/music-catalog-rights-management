@@ -41,3 +41,80 @@
 (define-private (has-asset-authorization (asset-id uint) (caller principal))
     (is-eq caller (unwrap! (map-get? asset-ownership-registry asset-id) false)))
 
+;; Performs validation on incoming metadata
+(define-private (validate-metadata-format (metadata-string (string-ascii 256)))
+    (let ((content-length (len metadata-string)))
+        (and (>= content-length u1)  ;; Enforce minimum content requirement
+             (<= content-length metadata-max-length))))  ;; Prevent oversized content
+
+;; Performs basic validation on principal addresses
+(define-private (is-principal-valid (address principal))
+    true)
+
+;; Creates a single asset entry with associated metadata
+(define-private (create-asset-entry (metadata-string (string-ascii 256)))
+    (let ((asset-id (+ (var-get asset-counter) u1)))
+        (try! (nft-mint? catalog-asset asset-id tx-sender))
+        (map-set asset-metadata-store asset-id metadata-string)
+        (map-set asset-ownership-registry asset-id tx-sender)
+        (var-set asset-counter asset-id)
+        (ok asset-id)))
+
+;; --------------------- External API Functions -------------------------
+
+;; Creates a new catalog asset with associated metadata
+(define-public (create-catalog-asset (metadata-string (string-ascii 256)))
+    (begin
+        (asserts! (is-eq tx-sender admin-principal) error-admin-restricted)
+        (asserts! (validate-metadata-format metadata-string) error-malformed-metadata)
+        (create-asset-entry metadata-string)))
+
+;; Transfers asset ownership to a new account
+(define-public (assign-asset-ownership (asset-id uint) (recipient principal))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (asserts! (is-principal-valid recipient) error-recipient-invalid)
+        (try! (nft-transfer? catalog-asset asset-id tx-sender recipient))
+        (map-set asset-ownership-registry asset-id recipient)
+        (ok true)))
+
+;; Updates the metadata associated with an asset
+(define-public (modify-asset-metadata (asset-id uint) (updated-metadata (string-ascii 256)))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (asserts! (validate-metadata-format updated-metadata) error-malformed-metadata)
+        (map-set asset-metadata-store asset-id updated-metadata)
+        (ok true)))
+
+;; Removes an asset from the registry (admin only)
+(define-public (decommission-asset (asset-id uint))
+    (begin
+        (asserts! (is-eq tx-sender admin-principal) error-admin-restricted)
+        (asserts! (is-some (map-get? asset-ownership-registry asset-id)) error-asset-missing)
+        (map-delete asset-ownership-registry asset-id)
+        (ok true)))
+
+;; Registers multiple assets in a batch operation
+(define-public (batch-asset-registration (metadata-batch (list 10 (string-ascii 256))))
+    (begin
+        (asserts! (is-eq tx-sender admin-principal) error-admin-restricted)
+        (map create-asset-entry metadata-batch)
+        (ok true)))
+
+;; Verifies if caller is the admin
+(define-public (check-admin-status)
+    (ok (is-eq tx-sender admin-principal)))
+
+;; Returns the most recently created asset ID
+(define-public (get-latest-asset-id)
+    (ok (var-get asset-counter)))
+
+;; Verifies if caller has admin privileges
+(define-public (verify-admin-privileges)
+    (ok (is-eq tx-sender admin-principal)))
+
+;; Checks if an asset exists in the registry
+(define-public (check-asset-status (asset-id uint))
+    (ok (is-some (map-get? asset-ownership-registry asset-id))))
+
+
