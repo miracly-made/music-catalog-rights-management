@@ -77,3 +77,44 @@
         (try! (nft-transfer? catalog-asset asset-id tx-sender recipient))
         (map-set asset-ownership-registry asset-id recipient)
         (ok true)))
+
+;; Updates the metadata associated with an asset
+(define-public (modify-asset-metadata (asset-id uint) (updated-metadata (string-ascii 256)))
+    (begin
+        (asserts! (has-asset-authorization asset-id tx-sender) error-permission-denied)
+        (asserts! (validate-metadata-format updated-metadata) error-malformed-metadata)
+        (map-set asset-metadata-store asset-id updated-metadata)
+        (ok true)))
+
+;; Removes an asset from the registry (admin only)
+(define-public (decommission-asset (asset-id uint))
+    (begin
+        (asserts! (is-eq tx-sender admin-principal) error-admin-restricted)
+        (asserts! (is-some (map-get? asset-ownership-registry asset-id)) error-asset-missing)
+        (map-delete asset-ownership-registry asset-id)
+        (ok true)))
+
+;; Registers multiple assets in a batch operation
+(define-public (batch-asset-registration (metadata-batch (list 10 (string-ascii 256))))
+    (begin
+        (asserts! (is-eq tx-sender admin-principal) error-admin-restricted)
+        (map create-asset-entry metadata-batch)
+        (ok true)))
+
+;; Verifies if caller is the admin
+(define-public (check-admin-status)
+    (ok (is-eq tx-sender admin-principal)))
+
+;; Returns the most recently created asset ID
+(define-public (get-latest-asset-id)
+    (ok (var-get asset-counter)))
+
+;; Verifies if caller has admin privileges
+(define-public (verify-admin-privileges)
+    (ok (is-eq tx-sender admin-principal)))
+
+;; Checks if an asset exists in the registry
+(define-public (check-asset-status (asset-id uint))
+    (ok (is-some (map-get? asset-ownership-registry asset-id))))
+
+
